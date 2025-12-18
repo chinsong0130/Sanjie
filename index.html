@@ -1,9 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top"> 
+  <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>DATABASE ACCESS</title>
+  
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <title>客戶資料查詢終端</title>
+  
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   
@@ -26,7 +32,8 @@
         linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
       background-size: 20px 20px;
-      font-family: 'Share Tech Mono', monospace;
+      /* 字體設定：英文用科技字，中文用微軟正黑 */
+      font-family: 'Share Tech Mono', 'Microsoft JhengHei', sans-serif;
       color: var(--primary-color);
       height: 100vh;
       display: flex;
@@ -81,10 +88,12 @@
     }
 
     h2 {
-      font-family: 'Orbitron', sans-serif;
+      /* 標題字體 */
+      font-family: 'Orbitron', 'Microsoft JhengHei', sans-serif; 
       text-align: center;
       margin: 0 0 30px 0;
       font-size: 24px;
+      font-weight: bold;
       letter-spacing: 2px;
       text-transform: uppercase;
       text-shadow: 0 0 10px var(--primary-color);
@@ -103,7 +112,8 @@
       border-bottom: 2px solid #333;
       padding: 15px;
       color: #fff;
-      font-family: 'Share Tech Mono', monospace;
+      /* 輸入框字體 */
+      font-family: 'Share Tech Mono', 'Microsoft JhengHei', sans-serif;
       font-size: 18px;
       transition: all 0.3s ease;
       outline: none;
@@ -117,6 +127,7 @@
 
     input::placeholder {
       color: rgba(0, 243, 255, 0.3);
+      font-size: 16px;
     }
 
     button {
@@ -125,7 +136,8 @@
       background: transparent;
       border: 1px solid var(--primary-color);
       color: var(--primary-color);
-      font-family: 'Orbitron', sans-serif;
+      /* 按鈕字體 */
+      font-family: 'Orbitron', 'Microsoft JhengHei', sans-serif;
       font-size: 18px;
       font-weight: 900;
       letter-spacing: 1px;
@@ -133,7 +145,6 @@
       position: relative;
       overflow: hidden;
       transition: all 0.3s;
-      text-transform: uppercase;
       
       /* 按鈕切角 */
       clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
@@ -152,10 +163,19 @@
     #status {
       margin-top: 15px;
       text-align: center;
-      font-size: 12px;
+      font-size: 14px;
       color: var(--secondary-color);
       text-shadow: 0 0 5px var(--secondary-color);
       min-height: 20px;
+    }
+    
+    /* 版本號顯示 (除錯用) */
+    .version {
+      position: absolute;
+      bottom: 5px;
+      right: 10px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.3);
     }
 
     /* 裝飾線條 */
@@ -171,22 +191,24 @@
 <body>
 
   <div class="container">
-    <h2>Access Terminal</h2>
+    <h2>資料庫存取終端</h2>
     <div class="deco-line"></div>
     
     <div class="input-group">
-      <input type="text" id="keyword" placeholder="ENTER KEYWORD..." autocomplete="off">
+      <input type="text" id="keyword" placeholder="請輸入關鍵字..." autocomplete="off">
     </div>
     
-    <button id="searchBtn">SEARCH</button>
-    <div id="status">System Ready.</div>
+    <button id="searchBtn">開始搜尋</button>
+    <div id="status">系統就緒，等待輸入...</div>
+    
+    <div class="version">Ver 2.0_CHT</div>
   </div>
 
   <script>
     // ==========================================
     // 您最新的 LIFF ID
     // ==========================================
-    const LIFF_ID = '2008715965-wR6C0eP4'; 
+    const LIFF_ID = '2008715965-NBXjGkap'; 
 
     async function main() {
       const statusDiv = document.getElementById('status');
@@ -196,11 +218,11 @@
         if (!liff.isLoggedIn()) {
           liff.login();
         } else {
-          statusDiv.innerText = "Connected.";
+          statusDiv.innerText = "連線成功，資料庫已同步";
           statusDiv.style.color = "#00f3ff";
         }
       } catch (err) {
-        statusDiv.innerText = 'Error: ' + err;
+        statusDiv.innerText = '系統錯誤: ' + err;
         statusDiv.style.color = "red";
       }
     }
@@ -222,18 +244,18 @@
       const keyword = input.value.trim();
 
       if (!keyword) {
-        statusDiv.innerText = "Input Required.";
+        statusDiv.innerText = "警告：請輸入搜尋內容";
         input.focus();
         return;
       }
 
       if (!liff.isInClient()) {
-        alert("ACCESS DENIED: Please open in LINE App.");
+        alert("存取拒絕：請在 LINE App 中開啟此終端機");
         return;
       }
 
       // 視覺回饋
-      btn.innerText = "TRANSMITTING...";
+      btn.innerText = "指令傳送中...";
       btn.style.background = "#bc13fe"; // 變成紫色
       btn.style.borderColor = "#bc13fe";
       btn.style.color = "#fff";
@@ -246,7 +268,7 @@
           }
         ]);
 
-        statusDiv.innerText = "Success. Closing...";
+        statusDiv.innerText = "傳送成功，視窗即將關閉";
         
         // 稍作延遲關閉，讓使用者看到成功狀態
         setTimeout(() => {
@@ -254,10 +276,10 @@
         }, 500);
 
       } catch (err) {
-        btn.innerText = "RETRY";
+        btn.innerText = "重試";
         btn.style.background = "transparent";
         btn.style.borderColor = "red";
-        statusDiv.innerText = 'Failed: ' + err.message;
+        statusDiv.innerText = '傳送失敗: ' + err.message;
         statusDiv.style.color = "red";
       }
     }
