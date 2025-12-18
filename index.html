@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SYSTEM DIAGNOSTIC V2</title>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    body { background-color: #050510; color: #00f3ff; font-family: 'Share Tech Mono', monospace; padding: 20px; word-break: break-all; }
+    h2 { border-bottom: 1px solid #00f3ff; padding-bottom: 10px; }
+    .box { border: 1px solid #333; padding: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.5); }
+    button { width: 100%; padding: 15px; background: #00f3ff; color: #000; border: none; font-weight: bold; font-size: 18px; margin-top: 20px; cursor: pointer; }
+    button:disabled { background: #555; color: #aaa; cursor: not-allowed; }
+    .error { color: #ff3333; }
+    .success { color: #33ff33; }
+    .warn { color: #ffff33; }
+  </style>
+</head>
+<body>
+  <h2>系統診斷模式 V2</h2>
+  
+  <div class="box">
+    <p>LIFF ID: <span id="liff-id-display" style="color:white">...</span></p>
+    <p>SDK 版本: <span id="sdk-version">讀取中...</span></p>
+    <p>OS / 語言: <span id="os-info">讀取中...</span></p>
+    <p>Context: <span id="context-type" style="font-weight:bold; color: yellow;">等待 Init...</span></p>
+  </div>
+
+  <div class="box">
+    <input type="text" id="keyword" placeholder="輸入測試文字" style="width:100%; padding:10px; background:#000; color:#fff; border:1px solid #555;" value="測試訊號">
+    <button id="btn" disabled>等待系統就緒...</button>
+  </div>
+
+  <div class="box">
+    <div style="margin-bottom:5px; border-bottom:1px solid #333;">System Logs:</div>
+    <div id="console" style="min-height: 150px; max-height: 300px; overflow-y: auto; color: #aaa; font-size: 12px; font-family: monospace;"></div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 請確認這裡的 ID 是否正確
+    // ==========================================
+    const LIFF_ID = '2008715965-NBXjGkap'; 
+
+    // logger 工具
+    const log = (msg, type = '') => {
+      const el = document.getElementById('console');
+      const time = new Date().toLocaleTimeString();
+      const color = type === 'err' ? '#ff3333' : (type === 'ok' ? '#33ff33' : (type === 'warn' ? '#ffff33' : '#aaa'));
+      el.innerHTML += `<div style="color:${color}; border-bottom:1px dashed #333; padding:2px;">[${time}] ${msg}</div>`;
+      el.scrollTop = el.scrollHeight; // 自動捲動到底部
+    };
+
+    document.getElementById('liff-id-display').innerText = LIFF_ID;
+
+    async function main() {
+      log('系統啟動，準備載入 LIFF SDK...');
+      
+      // 檢查 liff 物件是否存在
+      if (typeof liff === 'undefined') {
+        log('錯誤: LIFF SDK 未載入，請檢查網路或是 CDN 網址', 'err');
+        return;
+      }
+      
+      log('SDK 載入確認。開始執行 liff.init()...');
+
+      try {
+        // 設定 8 秒逾時機制，避免卡死不報錯
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Init Timeout (8000ms)")), 8000)
+        );
+
+        // 開始初始化 (與逾時競賽)
+        await Promise.race([
+          liff.init({ liffId: LIFF_ID }),
+          timeoutPromise
+        ]);
+
+        log('liff.init() 成功完成！', 'ok');
+
+        // 取得基本資訊
+        const os = liff.getOS();
+        const ver = liff.getVersion();
+        const lang = liff.getLanguage();
+        document.getElementById('os-info').innerText = `${os} / ${lang}`;
+        document.getElementById('sdk-version').innerText = ver;
+        log(`裝置資訊: ${os}, SDK v${ver}`);
+
+        // 1. 檢查登入狀態
+        if (!liff.isLoggedIn()) {
+          log('狀態：未登入。正在呼叫 login()...', 'warn');
+          liff.login();
+          return;
+        }
+        log('狀態：使用者已登入', 'ok');
+
+        // 2. 檢查 Context (關鍵)
+        const context = liff.getContext();
+        const contextType = context ? context.type : 'null';
+        document.getElementById('context-type').innerText = contextType;
+        
+        log(`環境偵測 (Context): ${contextType}`);
+
+        if (contextType === 'utou' || contextType === 'room' || contextType === 'group') {
+           log('環境判定：聊天室內 (Pass)', 'ok');
+           enableButton();
+        } else if (contextType === 'external' || contextType === 'none') {
+           log('環境判定：外部瀏覽器/非聊天室 (Fail)', 'err');
+           log('警告：請務必將連結貼到 LINE 聊天室中點擊！', 'warn');
+        } else {
+           log('環境判定：未知或載入中', 'warn');
+           enableButton(); // 試著讓他按按看
+        }
+
+      } catch (err) {
+        log('CRITICAL ERROR: 初始化失敗', 'err');
+        log('錯誤訊息: ' + err.toString(), 'err');
+        if (err.code) log('Error Code: ' + err.code, 'err');
+        
+        document.getElementById('context-type').innerText = "INIT FAILED";
+        document.getElementById('context-type').style.color = "red";
+      }
+    }
+
+    function enableButton() {
+      const btn = document.getElementById('btn');
+      btn.disabled = false;
+      btn.innerText = "發送測試訊號";
+      btn.style.background = "#00f3ff";
+    }
+
+    // 啟動主程式
+    // 稍微延遲 100ms 確保 DOM 載入
+    setTimeout(main, 100);
+
+    // 按鈕事件
+    document.getElementById('btn').addEventListener('click', async () => {
+      const text = document.getElementById('keyword').value;
+      if (!liff.isInClient()) {
+        alert('此功能僅限 LINE App 內使用');
+        return;
+      }
+
+      try {
+        log('正在呼叫 sendMessages...', 'warn');
+        await liff.sendMessages([{ type: 'text', text: '查 ' + text }]);
+        log('發送成功！API 回傳 OK。', 'ok');
+        log('視窗將在 1 秒後關閉...');
+        setTimeout(() => liff.closeWindow(), 1000);
+      } catch (err) {
+        log('發送失敗!', 'err');
+        log(`Code: ${err.code}, Msg: ${err.message}`, 'err');
+        
+        if (err.message.includes('permission') || err.message.includes('scope')) {
+             log('-----------------------------------');
+             log('【診斷建議】', 'warn');
+             log('1. 請確認 LINE Login Channel 有綁定 Linked OA', 'warn');
+             log('2. 請確認已在手機上解除連動並重新授權', 'warn');
+             log('3. 請確認是在「聊天室」內開啟此連結', 'warn');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
